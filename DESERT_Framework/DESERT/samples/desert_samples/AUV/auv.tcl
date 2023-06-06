@@ -5,7 +5,7 @@ proc createAUV { id } {
     global channel propagation propagation_op data_mask data_mask_op phy_auv posdb_auv opt rvposx mll_auv mll_op_auv mac_auv mac_op_auv 
     global db_manager node_auv_coordinates
     
-    # TRAFFICO 1: MONITORING AUV --> ASV
+    # TRAFFICO 1: MONITORING AUV --> SUV
     set node_auv($id) [$ns create-M_Node $opt(tracefile) $opt(cltracefile)] 
     Module/UW/AUV set packetSize_          $opt(pktsize_monitoring)
     Module/UW/AUV set period_              $opt(auv_period)
@@ -14,7 +14,7 @@ proc createAUV { id } {
     Module/UW/AUV set debug_ 0
     set auv_app($id)  [new Module/UW/AUV]
 
-    # TRAFFICO 2: CONTROL:ASV --> AUV
+    # TRAFFICO 2: CONTROL:SUV --> AUV
     #Module/UW/ROV/CTR set packetSize_          $opt(pktsize_control)
     #Module/UW/ROV/CTR set period_              $opt(cbr_period_control)
     #Module/UW/ROV/CTR set PoissonTraffic_      1
@@ -22,7 +22,7 @@ proc createAUV { id } {
     # Module/UW/CBR set debug_ 0
     #set cbr2_auv($id)  [new Module/UW/ROV/CTR]
 
-    # TRAFFICO 3: ERROR AUV --> ASV
+    # TRAFFICO 3: ERROR AUV --> SUV
     set node_auv($id) [$ns create-M_Node $opt(tracefile) $opt(cltracefile)] 
     Module/UW/AUV/ERR set packetSize_          $opt(pktsize)
     Module/UW/AUV/ERR set period_              $opt(auv_period)
