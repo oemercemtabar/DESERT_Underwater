@@ -293,7 +293,7 @@ void UwAUVErrorModule::initPkt(Packet* p) {
 	UwCbrModule::initPkt(p);
 
 	if (log_flag == 1) {
-			out_file_stats.open("postion_log_a.csv",std::ios_base::app);
+			out_file_stats.open("position_log_a.csv",std::ios_base::app);
 			out_file_stats << left << NOW << "," << posit->getX() << ","<< posit->getY() 
 				<< "," << posit->getZ() << std::endl;
 			out_file_stats.close();
@@ -335,7 +335,7 @@ void UwAUVErrorModule::recv(Packet* p) {
 
 	//to update 
 	if (log_flag == 1) {
-		out_file_stats.open("postion_log_a.csv",std::ios_base::app);
+		out_file_stats.open("position_log_a.csv",std::ios_base::app);
 		out_file_stats << left << NOW << "," << posit->getX() << ","<< posit->getY() 
 			<< "," << posit->getZ() << std::endl;
 		out_file_stats.close();

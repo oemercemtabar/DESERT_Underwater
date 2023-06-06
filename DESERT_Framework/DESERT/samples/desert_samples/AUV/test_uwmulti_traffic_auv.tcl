@@ -235,13 +235,15 @@ Module/UW/AUV set debug_               0
 Module/UW/AUV/ERR set packetSize_          $opt(pktsize)
 Module/UW/AUV/ERR set period_              $opt(auv_period)
 Module/UW/AUV/ERR set PoissonTraffic_      1
-Module/UW/AUV/ERR set debug_               1
+Module/UW/AUV/ERR set debug_               0
+Module/UW/AUV/ERR set log_flag_           1
 
 #UW/AUV/CERR
 Module/UW/AUV/CER set packetSize_          $opt(pktsize)
 Module/UW/AUV/CER set period_              $opt(auv_period)
 Module/UW/AUV/CER set PoissonTraffic_      1
 Module/UW/AUV/CER set debug_               0
+Module/UW/AUV/CER set log_flag_           1
 
 
 # BPSK              
