@@ -47,6 +47,7 @@ extern EmbeddedTcl UwauvTclCode;
 packet_t PT_UWAUV;
 packet_t PT_UWAUV_CTR;
 packet_t PT_UWAUV_ERROR;
+packet_t PT_UWAUV_OD;
 
 static class UwAUVMonPktClass : public PacketHeaderClass {
 public:
@@ -77,12 +78,22 @@ public:
     }
 } class_uwAUVError_pkt;
 
+static class UwAUVObjectDetectionPktClass : public PacketHeaderClass {
+public:
+
+    UwAUVODPktClass() : PacketHeaderClass("PacketHeader/UWAUVOD", sizeof (hdr_uwAUV_od)) {
+        this->bind();
+        bind_offset(&hdr_uwAUV_od::offset_);
+    }
+} class_uwAUVODError_pkt;
+
 
 
 extern "C" int Uwauv_Init() {
     PT_UWAUV = p_info::addPacket("UWAUV");
     PT_UWAUV_CTR = p_info::addPacket("UWAUVCtr");
     PT_UWAUV_ERROR = p_info::addPacket("UWAUVError");
+    PT_UWAUV_OD = p_info::addPacket("UWAUVOD");
 	UwauvTclCode.load();
 	return 0;
 }
