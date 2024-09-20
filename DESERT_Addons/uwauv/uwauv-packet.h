@@ -42,6 +42,7 @@
 extern packet_t PT_UWAUV;
 extern packet_t PT_UWAUV_CTR;
 extern packet_t PT_UWAUV_ERROR;
+extern packet_t PT_UWAUV_OD;
 /**
  * <i>hdr_uwAUV_ctr</i> describes <i>UWAUV_ctr</i> packets for controlling the AUV.
  */
@@ -172,3 +173,48 @@ typedef struct hdr_uwAUV_error {
         return speed_;
     }
 } hdr_uwAUV_error;
+
+typedef struct hdr_uwAUV_od {
+    float x_;
+    float y_;
+    float z_;
+    float speed_;
+    double ack_; // ack piggybacked of a ctr message. If =0 is not ack, if =b>0 is cumulative ack untill b, if c<0 is cumulative ack untill c-1 and NACK c.
+    double sn_;
+
+
+    static int offset_; /**< Required by the PacketHeaderManager. */
+
+    /**
+     * Reference to the offset_ variable.
+     */
+    inline static int& offset() {
+        return offset_;
+    }
+
+    inline static struct hdr_uwAUV_od * access(const Packet * p) {
+        return (struct hdr_uwAUV_od*) p->access(offset_);
+    }
+
+    inline float& x() {
+        return x_;
+    }
+
+    inline float& y() {
+        return y_;
+    }
+
+    inline float& z() {
+        return z_;
+    }
+
+    inline double& ack() {
+        return ack_;
+    }
+    inline double& sn() {
+        return sn_;
+    }
+    inline float& speed() {
+        return speed_;
+    }
+} hdr_uwAUV_od;
