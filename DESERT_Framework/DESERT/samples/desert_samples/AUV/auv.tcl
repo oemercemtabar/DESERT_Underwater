@@ -1,7 +1,7 @@
 set scr [info script]
 proc createAUV { id } {
 
-    global ns auv_app auv_err position_auv node_auv udp portnum_auv portnum2_auv ipr_auv ipif_auv
+    global ns auv_app auv_od position_auv node_auv udp portnum_auv portnum2_auv ipr_auv ipif_auv
     global channel propagation propagation_op data_mask data_mask_op phy_auv posdb_auv opt rvposx mll_auv mll_op_auv mac_auv mac_op_auv 
     global db_manager node_auv_coordinates
     
@@ -29,7 +29,7 @@ proc createAUV { id } {
     Module/UW/AUV/ERR set PoissonTraffic_      1
     Module/UW/AUV/ERR set traffic_type_ 3
     Module/UW/AUV/ERR set debug_ 1
-    set auv_err($id)  [new Module/UW/AUV/ERR]
+    set auv_od($id)  [new Module/UW/AUV/OD]
 
 
     set udp_auv($id)  [new Module/UW/UDP]
@@ -66,7 +66,7 @@ proc createAUV { id } {
     set phy_op_auv($id)  [new Module/UW/OPTICAL/PHY]
 
     $node_auv($id) addModule 8 $auv_app($id)   0  "CBR1"
-    $node_auv($id) addModule 8 $auv_err($id)  0  "CBR2"
+    $node_auv($id) addModule 8 $auv_od($id)  0  "CBR2"
     #$node_auv($id) addModule 8 $cbr3_auv($id)  0  "CBR3"
     $node_auv($id) addModule 7 $udp_auv($id)   0  "UDP1"
     $node_auv($id) addModule 6 $ipr_auv($id)   0  "IPR1"
@@ -87,7 +87,7 @@ proc createAUV { id } {
     $node_auv($id) addModule 1 $phy_op_auv($id)   0  "PHY_OP"
 
     $node_auv($id) setConnection $auv_app($id)   $udp_auv($id)   0
-    $node_auv($id) setConnection $auv_err($id)  $udp_auv($id)   0
+    $node_auv($id) setConnection $auv_od($id)  $udp_auv($id)   0
     #$node_auv($id) setConnection $cbr3_auv($id)  $udp_auv($id)   0
     $node_auv($id) setConnection $udp_auv($id)   $ipr_auv($id)   0
     $node_auv($id) setConnection $ipr_auv($id)   $ipif_auv($id)  2
@@ -104,7 +104,7 @@ proc createAUV { id } {
     $node_auv($id) addToChannel  $channel    $phy_op_auv($id)   0
 
     set portnum_auv($id) [$udp_auv($id) assignPort $auv_app($id) ]
-    set portnum2_auv($id) [$udp_auv($id) assignPort $auv_err($id) ]
+    set portnum2_auv($id) [$udp_auv($id) assignPort $auv_od($id) ]
     #set portnum3_auv($id) [$udp_auv($id) assignPort $cbr3_auv($id) ]
     if {$id > 254} {
     puts "hostnum > 254!!! exiting"
