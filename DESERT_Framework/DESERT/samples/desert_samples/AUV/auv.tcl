@@ -24,11 +24,11 @@ proc createAUV { id } {
 
     # TRAFFICO 3: ERROR AUV --> SUV
     set node_auv($id) [$ns create-M_Node $opt(tracefile) $opt(cltracefile)] 
-    Module/UW/AUV/ERR set packetSize_          $opt(pktsize)
-    Module/UW/AUV/ERR set period_              $opt(auv_period)
-    Module/UW/AUV/ERR set PoissonTraffic_      1
-    Module/UW/AUV/ERR set traffic_type_ 3
-    Module/UW/AUV/ERR set debug_ 1
+    Module/UW/AUV/OD set packetSize_          $opt(pktsize)
+    Module/UW/AUV/OD set period_              $opt(auv_period)
+    Module/UW/AUV/OD set PoissonTraffic_      1
+    Module/UW/AUV/OD set traffic_type_ 3
+    Module/UW/AUV/OD set debug_ 1
     set auv_od($id)  [new Module/UW/AUV/OD]
 
 
