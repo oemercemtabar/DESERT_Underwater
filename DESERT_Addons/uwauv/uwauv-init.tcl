@@ -27,13 +27,13 @@
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # @file   uwauv-defaults.tcl
-# @author Filippo Campagnaro Alessia Ortile
+# @author Filippo Campagnaro Alessia Ortile Ömer Cem Tabar
 # @version 1.0.0
 
 PacketHeaderManager set tab_(PacketHeader/UWAUV) 1
 PacketHeaderManager set tab_(PacketHeader/UWAUVCtr) 1
 PacketHeaderManager set tab_(PacketHeader/UWAUVError) 1
-
+PacketHeaderManager set tab_(PacketHeader/UWAUVOD) 1
 
 Module/UW/AUV set packetSize_         500
 Module/UW/AUV set period_             60
@@ -92,6 +92,20 @@ Module/UW/AUV/CER set adaptiveRTO_        0
 Module/UW/AUV/CER instproc init {args} {
     $self next $args
     $self settag "UW/AUV/CER"
+}
+
+Module/UW/AUV/OER set packetSize_         500
+Module/UW/AUV/OER set period_             60
+Module/UW/AUV/OER set destPort_           0
+Module/UW/AUV/OER set destAddr_           0
+Module/UW/AUV/OER set debug_              0
+Module/UW/AUV/OER set PoissonTraffic_     1
+Module/UW/AUV/OER set drop_out_of_order_  1
+Module/UW/AUV/OER set adaptiveRTO_     	  0
+
+Module/UW/AUV/OER instproc init {args} {
+    $self next $args
+    $self settag "UW/AUV/OD"
 }
 
 #Module/UW/TDMA set slot_status  0 
