@@ -25,190 +25,326 @@
 // WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 // OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 // ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+
 /**
-* @file uwauvctr-module.h
-* @author Filippo Campagnaro
+* @file uwauvctrer-module.cc
+* @author Filippo Campagnaro, Alessia Ortile
 * @version 1.0.0
 *
-* \brief Provides the definition of the class <i>UWAUV</i>.
+* \brief Provides the <i>UWAUVCtrEr</i> class implementation.
 *
-* Provides the definition of the class <i>UWAUVCTR</i>, based on <i>UwCbr</i>.
-* <i>UWAUVCTR</i> can manage no more than 2^16 packets. If a module generates more
-* than 2^16 packets, they will be dropped, according with <i>UwCbr</i>.
-* <i>UWAUVCTR</i> sends control packets containing the next waypoint that has to be
-* reach by a AUV. In addition it receives monitoring packets containing the current
-* AUV position and acks of the sent packets. Whether the ack is not received, the
-* control packet is resent, according to the priority. In particular, last waypoint
-* transmitted has the highest priority, whereas the others are forgotten.:
+* Provides the <i>UWAUVCtrEr</i> class implementation.
 */
 
-#ifndef UWAUVError_MODULE_H
-#define UWAUVError_MODULE_H
-#include <uwcbr-module.h>
-#include "uwauv-packet.h"
-#include "uwsmposition.h"
-#include "node-core.h"
-#include <queue>
-#include <fstream>
-#define UWAUV_DROP_REASON_UNKNOWN_TYPE "UKT" /**< Reason for a drop in a <i>UWAUV</i> module. */
-#define UWAUV_DROP_REASON_OUT_OF_SEQUENCE "OOS" /**< Reason for a drop in a <i>UWAUV</i> module. */
-#define UWAUV_DROP_REASON_DUPLICATED_PACKET "DPK" /**< Reason for a drop in a <i>UWAUV</i> module. */
-#define HDR_UWAUV_MONITORING(p) (hdr_uwAUV_monitoring::access(p))
-#define HDR_UWAUV_CTR(p) (hdr_uwAUV_ctr::access(p))
-#define HDR_UWAUV_ERROR(p) (hdr_uwAUV_error::access(p))
-using namespace std;
-class UwAUVCtrErModule;
+#include "uwauvctrer-module.h"
+#include <iostream>
+#include <rng.h>
+#include <stdint.h>
+extern packet_t PT_UWCBR;
+extern packet_t PT_UWAUV;
+extern packet_t PT_UWAUV_CTR;
+extern packet_t PT_UWAUV_ERROR;
+extern packet_t PT_UWAUV_OD;
+/**
+* Adds the module for UwAUVModuleClass in ns2.
+*/
 
 /**
-* UwSendTimer class is used to handle the scheduling period of <i>UWAUV</i> packets.
+* Class that represents the binding with the tcl configuration script 
 */
-class UwAUVErrorSendTimer : public UwSendTimer {
-	public:
-
-	/**
-   * Conscructor of UwSendTimer class 
-   * @param UwAUVCtrModule *m pointer to an object of type UwAUVCtrModule
-   */
-	UwAUVErrorSendTimer(UwAUVCtrErModule *m) : UwSendTimer((UwCbrModule*)(m)){
-	};
-};
-
-
-/**
-* UwAUVCtrModule class is used to manage <i>UWAUVCtr</i> packets and to collect statistics about them.
-*/
-class UwAUVCtrErModule : public UwCbrModule {
+static class UwAUVCtrErModuleClass : public TclClass {
 public:
 
 	/**
-	* Constructor of UwAUVCtrModule class.
-	*/
-	UwAUVCtrErModule();
-
-	/**
-	* Constructor of UwAUVCtrModule class with position setting.
-	*/
-	UwAUVCtrErModule(UWSMPosition* p);
-
-	/**
-	* Destructor of UwAUVCtrModule class.
-	*/
-	virtual ~UwAUVCtrErModule();
-
-	/**
-	* TCL command interpreter. It implements the following OTcl methods:
-	* 
-	* @param argc Number of arguments in <i>argv</i>.
-	* @param argv Array of strings which are the command parameters (Note that <i>argv[0]</i> is the name of the object).
-	* @return TCL_OK or TCL_ERROR whether the command has been dispatched successfully or not.
-	* 
-	**/
-	virtual int command(int argc, const char*const* argv);
-
-	/**
-   * Initializes a control data packet passed as argument with the default values.
-   * 
-   * @param Packet* Pointer to a packet already allocated to fill with the right values.
+   * Constructor of the class
    */
-	virtual void initPkt(Packet* p) ;
+	UwAUVCtrErModuleClass() : TclClass("Module/UW/AUV/CER") {
+	}
 
 	/**
-	* Reset retransmissions
-	*/
-	//inline void reset_retx() {p=NULL; sendTmr_.force_cancel();}
-
-	/**
-	* Set the position of the AUVCtr
-	*
-	* @param Position * p Pointer to the AUVCtr position
-	*/
-	virtual void setPosition(UWSMPosition* p);
-
-	/**
-	* Returns the position of the AUVCtr
-	*
-	* @return the current AUVCtr position
-	*/
-	inline UWSMPosition* getPosition() { return posit;}
-
-	/**
-	* Reset retransmissions
-	*/
-	inline void reset_retx() {p=NULL; sendTmr_.force_cancel();}
+   * Creates the TCL object needed for the tcl language interpretation
+   * @return Pointer to an TclObject
+   */
+	TclObject* create(int, const char*const*) {
+		return (new UwAUVCtrErModule());
+	}
+} class_module_uwAUV_error;
 
 
-	/**
-	* Creates and transmits a packet.
-	*
-	* @see UwCbrModule::sendPkt()
-	*/
-	virtual void transmit();
+UwAUVCtrErModule::UwAUVCtrErModule(UWSMPosition* p) 
+	: UwCbrModule()
+	, ack(0)
+	, last_sn_confirmed(0)
+	, sn(0)
+	, ackTimeout(10)
+	, drop_old_waypoints(1)
+	, log_flag(0)
+	, pos_log(0)
+	, alarm_mode(false)
+	, period(60)
+{
+	posit=p;
+	speed=5;
+	bind("ackTimeout_", (int*) &ackTimeout);
+    bind("drop_old_waypoints_", (int*) &drop_old_waypoints);
+    bind("log_flag_", (int*) &log_flag );
+	bind("period_", (int*) &period );
+    if (ackTimeout < 0) {
+    	cerr << NOW << " Invalide ACK timeout < 0, timeout set to 10 by defaults"
+    		<< std::endl;
+    	ackTimeout = 10;
+    }
+}
+
+UwAUVCtrErModule::UwAUVCtrErModule() 
+	: UwCbrModule()
+	, ack(0)
+	, last_sn_confirmed(0)
+	, sn(0)
+	, ackTimeout(10)
+	, drop_old_waypoints(1)
+	, log_flag(0)
+	//, out_file_stats(0)
+	, alarm_mode(false) 
+	, period(60)
+
+{
+	p = NULL;
+	UWSMPosition p = UWSMPosition();
+	posit=&p;
+	//posit = Position();
+	speed = 5;
+	bind("ackTimeout_", (int*) &ackTimeout);
+    bind("drop_old_waypoints_", (int*) &drop_old_waypoints);
+    bind("log_flag_", (int*) &log_flag );
+	bind("period_", (int*) &period );
+    if (ackTimeout < 0) {
+    	cerr << NOW << " Invalide ACK timeout < 0, timeout set to 10 by defaults"
+    		<< std::endl;
+    	ackTimeout = 10;
+    }
+	
+}
+
+UwAUVCtrErModule::~UwAUVCtrErModule() {}
+
+int UwAUVCtrErModule::command(int argc, const char*const* argv) {
+	Tcl& tcl = Tcl::instance();
+	if(argc == 2){
+		if (strcasecmp(argv[1], "getAUVMonheadersize") == 0) {
+			tcl.resultf("%d", this->getAUVMonHeaderSize());
+			return TCL_OK;
+		}
+		else if(strcasecmp(argv[1], "getAUVctrheadersize") == 0) {
+			tcl.resultf("%d", this->getAUVCTRHeaderSize());
+			return TCL_OK;
+		}else if(strcasecmp(argv[1], "getAUVErrorheadersize") == 0) {
+			tcl.resultf("%d", this->getAUVErrorHeaderSize());
+			return TCL_OK;
+		}
+		else if(strcasecmp(argv[1], "getX") == 0) {
+			tcl.resultf("%f", posit->getX());
+			return TCL_OK;
+		}
+		else if(strcasecmp(argv[1], "getY") == 0) {
+			tcl.resultf("%f", posit->getY());
+			return TCL_OK;
+		}
+		else if(strcasecmp(argv[1], "getZ") == 0) {
+			tcl.resultf("%f", posit->getZ());
+			return TCL_OK;
+		}
+	}
+	else if(argc == 3){
+		if (strcasecmp(argv[1], "setPosition") == 0) {
+			UWSMPosition* p = dynamic_cast<UWSMPosition*> (tcl.lookup(argv[2]));
+			posit = p;
+			return TCL_OK;
+		} else
+		if (strcasecmp(argv[1], "setSpeed") == 0) {
+			speed = atof(argv[2]);
+			return TCL_OK;
+		} 
+	}
+	/*else if(argc == 4){
+		/**if (strcasecmp(argv[1], "sendPosition") == 0) {
+			newX = atof(argv[2]);
+			newY = atof(argv[3]);
+			newZ = atof(argv[4]);
+			this->reset_retx();
+			this->transmit();
+			tcl.resultf("%s", "position Setted");
+			return TCL_OK;
+		}
+	}else if(argc == 6){
+		if (strcasecmp(argv[1], "sendPosition") == 0) {
+			newX = atof(argv[2]);
+			newY = atof(argv[3]);
+			newZ = atof(argv[4]);
+			speed = atof(argv[5]);
+			this->reset_retx();
+			this->transmit();
+			tcl.resultf("%s", "position Setted");
+			return TCL_OK;
+		}
+	}*/
+
+	return UwCbrModule::command(argc,argv);
+}
+
+void UwAUVCtrErModule::start() {}
+
+void UwAUVCtrErModule::setPosition(UWSMPosition* p){
+	posit = p;
+
+}
+
+void UwAUVCtrErModule::transmit() {
+	sendPkt();
+
+	if (debug_) {
+		std::cout << NOW << " UwAUVCtrErModule::Sending pkt with period:  " << period 
+			<< std::endl;
+	}
+
+	
+	sendTmr_.resched(period);
+}
+
+void UwAUVCtrErModule::initPkt(Packet* p) {
+
+	hdr_uwAUV_error* uwAUVh = HDR_UWAUV_ERROR(p);
+	hdr_uwcbr *uwcbrh = HDR_UWCBR(p);
+
+	uwAUVh->ack() = ack;
+	ack = 0;
+
+	if(this->p == NULL){ 
+
+		if ((abs(posit->getX() - x_auv) < 0.1) && (abs(posit->getY() - y_auv ) < 0.1)){
+			
+			uwAUVh->speed() = 100;
+			alarm_mode = false;
+			uwAUVh->sn() = ++sn;
+			this->p = p;
+
+			if (debug_) {
+				std::cout << NOW << " UwAUVCtrErModule::initPkt(Packet *p)  ERROR SOLVED" 
+			<< std::endl;
+		}
+
+		}
+
+		if (debug_) {
+		std::cout << NOW << " UwAUVCtrErModule::initPkt(Packet *p)  ACK recv" 
+			<< std::endl;
+		}
+
+	//Retransmission
+	}else if ((abs(posit->getX() - x_auv) < 0.1) && (abs(posit->getY() - y_auv ) < 0.1) ){
+
+		uwAUVh->speed() = 100;
+		alarm_mode = false;
+		uwAUVh->sn() = sn;
+
+		if (debug_) {
+		std::cout << NOW << " UwAUVCtrErModule::initPkt(Packet *p)  Retransmission ERROR SOLVED" 
+			<< std::endl;
+		}
+	}
+	
+	UwCbrModule::initPkt(p);
+
+	if (debug_) {
+		std::cout << NOW << " UwAUVCtrErModule::initPkt(Packet *p)  setting last ack" 
+			<< std::endl;
+	}
+
+	if (log_flag == 1) {
+
+			pos_log.open("position_log.csv",std::ios_base::app);
+			pos_log << NOW << "," << posit->getX() << ","<< posit->getY() 
+				<< ","<< posit->getZ() << std::endl;
+			pos_log.close();
+
+	}
+}
+
+void UwAUVCtrErModule::recv(Packet* p, Handler* h) {
+	recv(p);
+}
+
+void UwAUVCtrErModule::recv(Packet* p) {
+	
+	hdr_uwAUV_error* uwAUVh = HDR_UWAUV_ERROR(p);
 	
 
-	/**
-	* Performs the reception of packets from upper and lower layers.
-	*
-	* @param Packet* Pointer to the packet will be received.
-	*/
-	virtual void recv(Packet*);
-
-	/**
-	* Performs the reception of packets from upper and lower layers.
-	*
-	* @param Packet* Pointer to the packet will be received.
-	* @param Handler* Handler.
-	*/
-	virtual void recv(Packet* p, Handler* h);
-
-	/**
-	* Start the controller.
-	*/
-	virtual void start();
-
-	/**
-	* Returns the size in byte of a <i>hdr_uwAUV_monitoring</i> packet header.
-	*
-	* @return The size of a <i>hdr_uwAUV_monitoring</i> packet header.
-	*/
-	static inline int getAUVMonHeaderSize() { return sizeof(hdr_uwAUV_monitoring); }
-
-	/**
-	* Returns the size in byte of a <i>hdr_uwAUV_ctr</i> packet header.
-	*
-	* @return The size of a <i>hdr_uwAUV_monitoring</i> packet header.
-	*/
-	static inline int getAUVCTRHeaderSize() { return sizeof(hdr_uwAUV_ctr); }
-
-	/**
-	* Returns the size in byte of a <i>hdr_uwAUV_error</i> packet header.
-	*
-	* @return The size of a <i>hdr_uwAUV_monitoring</i> packet header.
-	*/
-	static inline int getAUVErrorHeaderSize() { return sizeof(hdr_uwAUV_error); }
-
-
-
-protected:
-
-	UWSMPosition* posit; /**< Controller position.*/
-	int last_sn_confirmed; /**< Sequence number of the last command Packete received.*/
-	int sn; /**Sequence number of the last control packet sent.*/
-	int ack;
-	int drop_old_waypoints;
-	float x_auv; /**< X of the last AUV position with an error.*/
-	float y_auv; /**< Y of the last AUV position with an error.*/
-	float z_auv; /**< Z of the last AUV position with an error.*/
-	float speed; /**< Moving speed sent to the AUV.*/
-	int period;
+	if(uwAUVh->ack() == sn + 1) { //ack received
+		//sendTmr_.force_cancel();
+		this->p = NULL;
+	}
 	
-	Packet* p;
-	int log_flag;
-	std::ofstream pos_log;
-	std::ofstream err_log;	
-	int ackTimeout;	
-	bool alarm_mode;
 
-};
+	if(uwAUVh->ack() > 0 && debug_) 
+		std::cout << NOW << " UwAUVErrorModule::recv(Packet *p) error ACK "
+			<< "received " << uwAUVh->ack()<< std::endl;
+	else if((uwAUVh->ack())<0 && debug_)
+		std::cout << NOW << " UwAUVErrorModule::recv(Packet *p) error NACK " 
+			<<"received"<< std::endl;
 
-#endif // UWAUVCtr_MODULE_H
+	if (!alarm_mode){
+
+		if (drop_old_waypoints == 1 && uwAUVh->sn() <= last_sn_confirmed) { //obsolete packets
+			if (debug_) {
+				std::cout << NOW << " UwAUVCtrErrModule::old error with sn " 
+					<< uwAUVh->sn() << " dropped " << std::endl;
+			}
+
+		} else { //packet in order
+			x_auv = uwAUVh->x();
+			y_auv = uwAUVh->y();
+			posit->setdest(x_auv,y_auv,posit->getZ(),1);
+			last_sn_confirmed = uwAUVh->sn();
+			alarm_mode = true;
+
+			if (log_flag == 1) {
+				err_log.open("error_log.csv",std::ios_base::app);
+				err_log << NOW << "," << x_auv<<","<<y_auv<< std::endl;
+				err_log.close();
+			}
+
+		}
+
+		ack = last_sn_confirmed+1;
+
+		if (log_flag == 1) {
+			pos_log.open("position_log.csv",std::ios_base::app);
+			pos_log<< NOW << ","<<posit->getX() << ","<< posit->getY() 
+				<< ","<< posit->getZ() << std::endl;
+			pos_log.close();
+		}
+
+
+		if (debug_) {
+			std::cout << NOW << " UwAUVCtrErrModule::recv(Packet *p) SV received new "
+				"error: X = " << uwAUVh->x() << ", Y = " << uwAUVh->y() 
+				<< ", Z = " << uwAUVh->z() << " speed "<< uwAUVh->speed()<< std::endl;
+		}
+
+		UwCbrModule::recv(p);
+
+
+		if (debug_)
+			cout << NOW << " ACK sent immediately with standard priority " 
+				<< std::endl;
+	}
+
+	UwCbrModule::sendPkt();
+
+	if (debug_) 
+		std::cout << NOW << " UwAUVCtrErrModule::recv(Packet *p) Packet dropped: "
+			<< "alarm mode "<< std::endl;
+		
+
+}
+
